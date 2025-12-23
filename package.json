@@ -1,0 +1,23 @@
+{
+  "name": "open-ai-agent",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@openai/agents": "^0.3.4",
+    "claude-mem": "github:thedotmack/claude-mem",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dotenv": "^16.6.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
