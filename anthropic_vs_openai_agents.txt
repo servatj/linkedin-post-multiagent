@@ -1,0 +1,15 @@
+Anthropic's Agents SDK adopts a unified agent architecture, where agents natively integrate both tool and subagent functionalities. This design enables agents to invoke tools or orchestrate subagent workflows within a seamless, iterative control loop.
+
+Notably, Anthropic does not formalize handoff or ownership transfer constructs—agents retain contextual control throughout, relying on internal state management rather than explicit delegation or authority transfer.
+
+In contrast, OpenAI's Agents SDK clearly delineates three paradigms:
+
+1. Agent-as-tool: where an agent programmatically leverages another agent as a callable utility
+
+2. Explicit handoffs: delegating a task and contextual authority to another agent
+
+3. Ownership transfer: shifting durable state or task ownership
+
+These mechanisms are formally supported with distinct API patterns and robust documentation, empowering developers to architect complex, multi-agent systems with precise control over inter-agent workflows and responsibilities.
+
+In summary, Anthropic emphasizes simplicity and unified control, while OpenAI provides explicit, modular constructs for delegation and dynamic ownership—offering more granular governance of agent collaboration and lifecycle events.
