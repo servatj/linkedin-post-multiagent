@@ -26,7 +26,6 @@ export const writeFileTool = tool({
   },
 });
 
-// Create a complete post with image references
 export const createPostWithImageTool = tool({
   name: "create_post_file",
   description: "Create a complete post file that includes the post content and image information",
@@ -48,7 +47,7 @@ export const createPostWithImageTool = tool({
     outputPath: string;
   }) => {
     logToolCall("create_post_file", { outputPath, hasImage: !!(imageUrl || imageFilePath) });
-    
+
     try {
       // Create directory if needed
       const dir = outputPath.split('/').slice(0, -1).join('/');
@@ -57,7 +56,7 @@ export const createPostWithImageTool = tool({
       }
 
       let fullContent = `# Post\n\n${postContent}\n\n`;
-      
+
       if ((imageUrl && imageUrl.trim()) || (imageFilePath && imageFilePath.trim())) {
         fullContent += `---\n\n## Image Details\n\n`;
         if (imageFilePath && imageFilePath.trim()) {
@@ -70,7 +69,7 @@ export const createPostWithImageTool = tool({
       }
 
       await fs.writeFile(outputPath, fullContent, "utf-8");
-      
+
       const result = {
         success: true,
         filePath: outputPath,
@@ -90,10 +89,9 @@ export const createPostWithImageTool = tool({
 });
 
 
-// Image GENERATION tool (creates images from prompts)
-export const imageCreateTool = tool({
+export const imageCreateNanoBananProTool = tool({
   name: "generate_image",
-  description: "Generate an image from a text prompt using DALL-E",
+  description: "Create an image using WaveSpeed API",
   parameters: z.object({
     prompt: z.string().describe("A detailed description of the image to generate"),
     size: z.enum(["1024x1024", "1792x1024", "1024x1792"]).describe("Image size (use '1024x1024' as default)"),
@@ -107,39 +105,84 @@ export const imageCreateTool = tool({
   }) => {
     // Use default if not provided or empty
     const imageSize = size && size.trim() ? size : "1024x1024";
-    logToolCall("generate_image (DALL-E 3)", { prompt: prompt.substring(0, 80) + "...", size: imageSize });
+    console.log("generate_image (nano banana pro )");
 
-    const openai = new OpenAI();
+    if (!process.env.WAVESPEED_API_KEY) {
+      console.error("Your API_KEY is not set, you can check it in Access Keys");
+      return;
+    }
+    const url = "https://api.wavespeed.ai/api/v3/google/nano-banana-pro/text-to-image";
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.WAVESPEED_API_KEY}`
+    };
+    const payload = {
+      "aspect_ratio": "3:4",
+      "enable_base64_output": false,
+      "enable_sync_mode": false,
+      "output_format": "png",
+      "prompt": prompt,
+      "resolution": "2k"
+    };
 
     try {
-      const response = await openai.images.generate({
-        model: "dall-e-3",
-        prompt,
-        n: 1,
-        size: imageSize,
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload)
       });
 
-      const imageData = response.data?.[0];
-      const imageUrl = imageData?.url ?? null;
-      const revisedPrompt = imageData?.revised_prompt ?? null;
 
-      if (!imageUrl) {
-        logToolResult("generate_image", "ERROR: No image URL returned");
-        return {
-          success: false,
-          error: "No image URL returned from API",
-        };
+      if (response.ok) {
+
+        const result = await response.json();
+        const requestId = result.data.id;
+        console.log(`Task submitted successfully. Request ID: ${requestId}`);
+
+        while (true) {
+          const response = await fetch(
+            `https://api.wavespeed.ai/api/v3/predictions/${requestId}/result`,
+            {
+              headers: {
+                "Authorization": `Bearer ${process.env.WAVESPEED_API_KEY}`
+              }
+            });
+          const result = await response.json();
+
+          if (response.ok) {
+            const data = result.data;
+            const status = data.status;
+
+            if (status === "completed") {
+              const resultUrl = data.outputs[0];
+              console.log("Task completed. URL:", resultUrl);
+
+              logToolResult("generate_image", `SUCCESS: ${resultUrl.substring(0, 60)}...`);
+              logToolResult("generate_image 2", `full image url: ${resultUrl}`);
+
+             return {
+                success: true,
+                imageUrl: resultUrl,
+                message: `Image generated successfully. URL: ${resultUrl}`,
+              };
+              break;
+            } else if (status === "failed") {
+              console.error("Task failed:", data.error);
+              break;
+            } else {
+              console.log("Task still processing. Status:", status);
+            }
+          } else {
+            console.error("Error:", response.status, JSON.stringify(result));
+            break;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 0.1 * 1000));
+        }
+      } else {
+        console.error(`Error: ${response.status}, ${await response.text()}`);
       }
-
-      logToolResult("generate_image", `SUCCESS: ${imageUrl.substring(0, 60)}...`);
-      logToolResult("generate_image 2", `full image url: ${imageUrl}`);
-
-      return {
-        success: true,
-        imageUrl,
-        revisedPrompt,
-        message: `Image generated successfully. URL: ${imageUrl}`,
-      };
     } catch (err: any) {
       logToolResult("generate_image", `ERROR: ${err.message}`);
       return {
@@ -149,6 +192,66 @@ export const imageCreateTool = tool({
     }
   },
 });
+
+// Image GENERATION tool (creates images from prompts)
+// export const imageCreateTool = tool({
+//   name: "generate_image",
+//   description: "Generate an image from a text prompt using DALL-E",
+//   parameters: z.object({
+//     prompt: z.string().describe("A detailed description of the image to generate"),
+//     size: z.enum(["1024x1024", "1792x1024", "1024x1792"]).describe("Image size (use '1024x1024' as default)"),
+//   }),
+//   execute: async ({
+//     prompt,
+//     size,
+//   }: {
+//     prompt: string;
+//     size: "1024x1024" | "1792x1024" | "1024x1792";
+//   }) => {
+//     // Use default if not provided or empty
+//     const imageSize = size && size.trim() ? size : "1024x1024";
+//     logToolCall("generate_image (DALL-E 3)", { prompt: prompt.substring(0, 80) + "...", size: imageSize });
+
+//     const openai = new OpenAI();
+
+//     try {
+//       const response = await openai.images.generate({
+//         model: "dall-e-3",
+//         prompt,
+//         n: 1,
+//         size: imageSize,
+//       });
+
+//       const imageData = response.data?.[0];
+//       const imageUrl = imageData?.url ?? null;
+//       const revisedPrompt = imageData?.revised_prompt ?? null;
+
+//       if (!imageUrl) {
+//         logToolResult("generate_image", "ERROR: No image URL returned");
+//         return {
+//           success: false,
+//           error: "No image URL returned from API",
+//         };
+//       }
+
+//       logToolResult("generate_image", `SUCCESS: ${imageUrl.substring(0, 60)}...`);
+//       logToolResult("generate_image 2", `full image url: ${imageUrl}`);
+
+//       return {
+//         success: true,
+//         imageUrl,
+//         revisedPrompt,
+//         message: `Image generated successfully. URL: ${imageUrl}`,
+//       };
+//     } catch (err: any) {
+//       logToolResult("generate_image", `ERROR: ${err.message}`);
+//       return {
+//         success: false,
+//         error: err.message,
+//       };
+//     }
+//   },
+// });
 
 // Image DOWNLOAD tool (downloads and saves images locally)
 export const imageDownloadTool = tool({
@@ -184,7 +287,7 @@ export const imageDownloadTool = tool({
 
       const buffer = await response.arrayBuffer();
       const filePath = `${targetDir}/${filename}`;
-      
+
       // Save to file
       await fs.writeFile(filePath, Buffer.from(buffer));
 
@@ -193,7 +296,7 @@ export const imageDownloadTool = tool({
         filePath,
         message: `Image downloaded and saved to ${filePath}`,
       };
-      
+
       logToolResult("download_image", `SUCCESS: Saved to ${filePath}`);
       return result;
     } catch (err: any) {
