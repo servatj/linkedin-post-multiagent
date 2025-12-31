@@ -17,7 +17,7 @@ async function main() {
     },
   });
 
-  const prompt = "AI subAgent as tool vs handoffs delegation 200 words for a linkeding post format it for linkedin copy paste ";
+  const prompt = "Mmmory type in agents sdk openai patterns";
 
   logSection("STARTING AGENT WORKFLOW");
   console.log(`📝 Prompt: ${prompt}\n`);
